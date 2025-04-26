@@ -1,0 +1,10 @@
+.env
+.venv
+data/
+notebooks/
+*.jsonl
+*.json
+*.egg-info/
+__pycache__/
+*.pyc
+

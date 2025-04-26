@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "myrag"
+description = "use of rag for personal use"
+version = "1.0"
+dependencies = [
+    "pip-tools",
+    "ipykernel",
+    "python-dotenv",
+    "pydantic",
+    "langchain",
+    "openai",
+]
+
+[tools.setuptools.packages.find]
+where = ["src"]
