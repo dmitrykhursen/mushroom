@@ -26,6 +26,11 @@ class AtomicFact:
 class EntryAtomicFacts(Entry):
     atomic_facts: List[AtomicFact]
 
+@dataclass
+class RetrievalInfo(Entry):
+    wiki_info: List[List[str]]
+    llm_prompt: str
+
 
     
 
