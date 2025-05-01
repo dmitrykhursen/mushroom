@@ -17,6 +17,7 @@ class Entry:
     wikipedia_url: str
     annotations: Dict[str, List[List[int]]]
 
+@dataclass
 class AtomicFact:
     fact_phrase: str
     indices: Tuple[int, int]
@@ -27,9 +28,15 @@ class EntryAtomicFacts(Entry):
     atomic_facts: List[AtomicFact]
 
 @dataclass
-class RetrievalInfo(Entry):
+class EntryRetrievalInfo(Entry):
     wiki_info: List[List[str]]
     llm_prompt: str
+
+@dataclass
+class EntrySpanLabeling(Entry):
+    soft_predictions: List[Dict[str, Any]]
+    hard_predictions: List[List[int]]
+    output_prediction: List[Dict[str, Any]] # should have the format suitable for the scorer
 
 
     
