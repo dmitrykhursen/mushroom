@@ -1,6 +1,6 @@
 import datasets
 from dataclasses import dataclass
-from typing import List, Dict, Any
+from typing import List, Tuple, Dict, Any
 
 
 @dataclass
@@ -16,6 +16,15 @@ class Entry:
     model_output_tokens: List[str]
     wikipedia_url: str
     annotations: Dict[str, List[List[int]]]
+
+class AtomicFact:
+    fact_phrase: str
+    indices: Tuple[int, int]
+    
+
+@dataclass
+class EntryAtomicFacts(Entry):
+    atomic_facts: List[AtomicFact]
 
 
     
