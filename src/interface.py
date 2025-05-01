@@ -36,7 +36,7 @@ class EntryRetrievalInfo(Entry):
 class EntrySpanLabeling(Entry):
     soft_predictions: List[Dict[str, Any]]
     hard_predictions: List[List[int]]
-    output_prediction: List[Dict[str, Any]] # should have the format suitable for the scorer
+    output_prediction: Dict[str, Any] # should have the format suitable for the scorer
 
 
     
