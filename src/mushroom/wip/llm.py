@@ -2,6 +2,7 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain.chat_models import ChatOpenAI
 from config import config
 
+
 def get_embedding_model() -> OpenAIEmbeddings:
     """
     This function initializes and returns an instance of OpenAIEmbeddings.
