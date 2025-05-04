@@ -3,17 +3,14 @@ name = "mushroom"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "semindan", email = "semindan.dev@gmail.com" }
-]
-requires-python = ">=3.10"
+authors = []
+requires-python = ">=3.11"
 dependencies = [
     "langchain>=0.3.25",
     "openai>=1.77.0",
+    "pydantic>=2.11.4",
+    "pydantic-settings>=2.9.1",
 ]
-
-[project.scripts]
-mushroom = "mushroom:main"
 
 [build-system]
 requires = ["hatchling"]
