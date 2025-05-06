@@ -1,19 +1,27 @@
-import torch
+import argparse
 import json
 import os
-import argparse
-import torch.nn.functional as F
-from transformers import AutoTokenizer, AutoModelForTokenClassification, Trainer, TrainingArguments
-from datasets import load_dataset, load_metric
 
-LABEL_LIST=[0,1]
-LANGS = ['ar', 'de', 'en', 'es', 'fi', 'fr', 'hi', 'it', 'sv', 'zh']
-MODEL_NAME = 'FacebookAI/xlm-roberta-base'
+import torch
+import torch.nn.functional as F
+from datasets import load_dataset, load_metric
+from transformers import (AutoModelForTokenClassification, AutoTokenizer,
+                          Trainer, TrainingArguments)
+
+LABEL_LIST = [0, 1]
+LANGS = ["ar", "de", "en", "es", "fi", "fr", "hi", "it", "sv", "zh"]
+MODEL_NAME = "FacebookAI/xlm-roberta-base"
+
 
 def tokenize_and_map_labels(examples, tokenizer):
-    tokenized_inputs = tokenizer(examples['model_output_text'], return_offsets_mapping=True, padding=True, truncation=True)
-    offset_mappings = tokenized_inputs['offset_mapping']
-    all_labels = examples['hard_labels']
+    tokenized_inputs = tokenizer(
+        examples["model_output_text"],
+        return_offsets_mapping=True,
+        padding=True,
+        truncation=True,
+    )
+    offset_mappings = tokenized_inputs["offset_mapping"]
+    all_labels = examples["hard_labels"]
     tok_labels_batch = []
     for batch_idx in range(len(offset_mappings)):
         offset_mapping = offset_mappings[batch_idx]
@@ -22,35 +30,44 @@ def tokenize_and_map_labels(examples, tokenizer):
         for idx, start_end in enumerate(offset_mapping):
             start = start_end[0]
             end = start_end[1]
-            for (label_start, label_end) in hard_labels:
+            for label_start, label_end in hard_labels:
                 if start >= label_start and end <= label_end:
                     tok_labels[idx] = 1
         tok_labels_batch.append(tok_labels)
-    tokenized_inputs['labels'] = tok_labels_batch
+    tokenized_inputs["labels"] = tok_labels_batch
     return tokenized_inputs
+
 
 def train_model(test_lang, data_path, output_dir):
     # Load the tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModelForTokenClassification.from_pretrained(MODEL_NAME, num_labels=2)  # Adjust num_labels as needed
+    model = AutoModelForTokenClassification.from_pretrained(
+        MODEL_NAME, num_labels=2
+    )  # Adjust num_labels as needed
 
     data_files = {
-        'train': [f'{data_path}/mushroom.{lang}-val.v2.jsonl' for lang in LANGS if lang != test_lang],
-        'validation': f'{data_path}/mushroom.{test_lang}-val.v2.jsonl'
+        "train": [
+            f"{data_path}/mushroom.{lang}-val.v2.jsonl"
+            for lang in LANGS
+            if lang != test_lang
+        ],
+        "validation": f"{data_path}/mushroom.{test_lang}-val.v2.jsonl",
     }
-    dataset = load_dataset('json', data_files=data_files)
+    dataset = load_dataset("json", data_files=data_files)
     # Tokenize the dataset
-    tokenized_datasets = dataset.map(lambda x: tokenize_and_map_labels(x, tokenizer), batched=True)
-    print("tokenized_datasets:\n",tokenized_datasets)
+    tokenized_datasets = dataset.map(
+        lambda x: tokenize_and_map_labels(x, tokenizer), batched=True
+    )
+    print("tokenized_datasets:\n", tokenized_datasets)
 
     # Prepare the dataset for training
-    train_dataset = tokenized_datasets['train']
-    eval_dataset = tokenized_datasets['validation']
+    train_dataset = tokenized_datasets["train"]
+    eval_dataset = tokenized_datasets["validation"]
 
     # Define the training arguments
     training_args = TrainingArguments(
         output_dir=output_dir,
-        evaluation_strategy='epoch',
+        evaluation_strategy="epoch",
         learning_rate=2e-5,
         per_device_train_batch_size=16,
         per_device_eval_batch_size=16,
@@ -59,7 +76,7 @@ def train_model(test_lang, data_path, output_dir):
     )
 
     # Define the metric
-    metric = load_metric('seqeval', trust_remote_code=True)
+    metric = load_metric("seqeval", trust_remote_code=True)
 
     def compute_metrics(p):
         predictions, labels = p
@@ -92,7 +109,9 @@ def train_model(test_lang, data_path, output_dir):
 
     # Evaluate the model
     trainer.evaluate()
-    print(f"Model trained and evaluated successfully. Model checkpoint saved in {output_dir}")
+    print(
+        f"Model trained and evaluated successfully. Model checkpoint saved in {output_dir}"
+    )
 
 
 def test_model(test_lang, model_path, data_path):
@@ -100,9 +119,17 @@ def test_model(test_lang, model_path, data_path):
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     model = AutoModelForTokenClassification.from_pretrained(model_path)
     # Load the test dataset
-    test_dataset = load_dataset('json', data_files={'test': f'{data_path}/mushroom.{test_lang}-val.v2.jsonl'})['test']
+    test_dataset = load_dataset(
+        "json", data_files={"test": f"{data_path}/mushroom.{test_lang}-val.v2.jsonl"}
+    )["test"]
     # Tokenize test dataset
-    inputs = tokenizer(test_dataset['model_output_text'], padding=True, truncation=True, return_offsets_mapping=True, return_tensors="pt")
+    inputs = tokenizer(
+        test_dataset["model_output_text"],
+        padding=True,
+        truncation=True,
+        return_offsets_mapping=True,
+        return_tensors="pt",
+    )
 
     # Get predictions for the test set
     model.eval()
@@ -118,38 +145,65 @@ def test_model(test_lang, model_path, data_path):
         hard_labels_sample = []
         soft_labels_sample = []
         positive_indices = torch.nonzero(pred == 1, as_tuple=False)
-        offset_mapping = inputs['offset_mapping'][i]
+        offset_mapping = inputs["offset_mapping"][i]
         for j, offset in enumerate(offset_mapping):
-            soft_labels_sample.append({'start': offset[0].item(), 'end': offset[1].item(), 'prob': probs[i][j][1].item()})
+            soft_labels_sample.append(
+                {
+                    "start": offset[0].item(),
+                    "end": offset[1].item(),
+                    "prob": probs[i][j][1].item(),
+                }
+            )
             if j in positive_indices:
                 hard_labels_sample.append((offset[0].item(), offset[1].item()))
-        soft_labels_all[test_dataset['id'][i]] = soft_labels_sample
-        hard_labels_all[test_dataset['id'][i]] = hard_labels_sample
-        predictions_all.append({'id': test_dataset['id'][i], 'hard_labels': hard_labels_sample, 'soft_labels': soft_labels_sample})
-    with open(f"{test_lang}-hard_labels.json", 'w') as f:
+        soft_labels_all[test_dataset["id"][i]] = soft_labels_sample
+        hard_labels_all[test_dataset["id"][i]] = hard_labels_sample
+        predictions_all.append(
+            {
+                "id": test_dataset["id"][i],
+                "hard_labels": hard_labels_sample,
+                "soft_labels": soft_labels_sample,
+            }
+        )
+    with open(f"{test_lang}-hard_labels.json", "w") as f:
         json.dump(hard_labels_all, f)
-    with open(f"{test_lang}-soft_labels.json", 'w') as f:
+    with open(f"{test_lang}-soft_labels.json", "w") as f:
         json.dump(soft_labels_all, f)
-    with open(f"{test_lang}-pred.jsonl", 'w') as f:
+    with open(f"{test_lang}-pred.jsonl", "w") as f:
         for pred_dict in predictions_all:
             print(json.dumps(pred_dict), file=f)
-    print(f"Labels saved to {test_lang}-hard_labels.json and {test_lang}-soft_labels.json")
+    print(
+        f"Labels saved to {test_lang}-hard_labels.json and {test_lang}-soft_labels.json"
+    )
     print(f"Prediction file saved to {test_lang}-pred.jsonl")
 
 
 def main(args):
-    if args.mode == 'train':
-        train_model(test_lang=args.test_lang, data_path=args.data_path, output_dir=args.model_checkpoint,)
+    if args.mode == "train":
+        train_model(
+            test_lang=args.test_lang,
+            data_path=args.data_path,
+            output_dir=args.model_checkpoint,
+        )
     else:
         print(f"Test model: {args.model_checkpoint}")
-        test_model(test_lang=args.test_lang, model_path=args.model_checkpoint, data_path=args.data_path)
+        test_model(
+            test_lang=args.test_lang,
+            model_path=args.model_checkpoint,
+            data_path=args.data_path,
+        )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train or test the model")
-    parser.add_argument('--mode', type=str, choices=['train', 'test'], default='train')
-    parser.add_argument('--data_path', type=str, help="Path to the training data")
-    parser.add_argument('--model_checkpoint', type=str, default="./results", help="Path to the trained checkpoint")
-    parser.add_argument('--test_lang', type=str, default="ar")
+    parser.add_argument("--mode", type=str, choices=["train", "test"], default="train")
+    parser.add_argument("--data_path", type=str, help="Path to the training data")
+    parser.add_argument(
+        "--model_checkpoint",
+        type=str,
+        default="./results",
+        help="Path to the trained checkpoint",
+    )
+    parser.add_argument("--test_lang", type=str, default="ar")
     args = parser.parse_args()
     main(args)
