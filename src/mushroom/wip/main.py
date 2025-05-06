@@ -1,5 +1,5 @@
-from data_loader import load_model_outputs
 import fact_extractor
+from data_loader import load_model_outputs
 
 # load the data from the raw data directory
 texts = load_model_outputs("data/raw")
@@ -12,8 +12,3 @@ for text in texts:
     facts.append(textFacts.get_facts())
 
 print(facts)
-
-
-
-
-

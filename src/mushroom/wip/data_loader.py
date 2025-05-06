@@ -1,10 +1,11 @@
-import os
 import json
+import os
 from typing import List
+
 from mushroom.config import settings
 
-
 breakpoint()
+
 
 def load_model_outputs(data_dir: str) -> List[str]:
     """
@@ -21,30 +22,31 @@ def load_model_outputs(data_dir: str) -> List[str]:
     # Loop through files in the directory
     for filename in os.listdir(data_dir):
         file_path = os.path.join(data_dir, filename)
-        
-        if filename.endswith('.json'):
-            with open(file_path, 'r', encoding='utf-8') as f:
+
+        if filename.endswith(".json"):
+            with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 if isinstance(data, list):
                     for record in data:
-                        text = record.get('model_output_text')
+                        text = record.get("model_output_text")
                         if text:
                             model_outputs.append(text)
                 elif isinstance(data, dict):
-                    text = data.get('model_output_text')
+                    text = data.get("model_output_text")
                     if text:
                         model_outputs.append(text)
 
-        elif filename.endswith('.jsonl'):
-            with open(file_path, 'r', encoding='utf-8') as f:
+        elif filename.endswith(".jsonl"):
+            with open(file_path, "r", encoding="utf-8") as f:
                 for line in f:
                     if line.strip():  # Skip empty lines
                         record = json.loads(line)
-                        text = record.get('model_output_text')
+                        text = record.get("model_output_text")
                         if text:
                             model_outputs.append(text)
 
     return model_outputs
+
 
 if __name__ == "__main__":
     # Example usage
