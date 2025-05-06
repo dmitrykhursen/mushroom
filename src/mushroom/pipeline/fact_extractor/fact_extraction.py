@@ -1,5 +1,7 @@
 from typing import List
+
 from llm import get_chat_model
+
 
 def extract_atomic_facts(text: str) -> List[str]:
     """
@@ -23,6 +25,6 @@ TEXT:
     response = chat_model.invoke(prompt)  # Use the chat model to get the response
 
     print(response.content)
-    
-    facts = [line.strip() for line in response.content.split('\n') if line.strip()]
+
+    facts = [line.strip() for line in response.content.split("\n") if line.strip()]
     return facts
