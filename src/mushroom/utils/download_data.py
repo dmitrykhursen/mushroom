@@ -21,9 +21,13 @@ def download_data() -> None:
     Path(output_folder).mkdir(exist_ok=True)
     for folder, url in URLS:
         output_path = output_folder / folder
+        if output_path.exists():
+            print(f"{folder} already exists. Skipping download.")
+            continue
         output_path.mkdir(exist_ok=True)
         response = requests.get(url)
         response.raise_for_status()  # Raise error if download failed
+        
         if url.endswith(".tar.gz"):
             with tarfile.open(fileobj=BytesIO(response.content), mode="r:gz") as tar_ref:
                 tar_ref.extractall(output_path)
