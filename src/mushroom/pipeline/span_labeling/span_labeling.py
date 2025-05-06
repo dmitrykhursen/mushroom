@@ -5,6 +5,7 @@ from typing import Callable, List
 from mushroom.pipeline.interface import Entry
 from mushroom.pipeline.span_labeling.evaluate_span_labeling import \
     evaluate_span_labeling
+from mushroom.config import settings
 
 
 def baseline_entry_all_spans(entry: Entry) -> Entry:
@@ -59,8 +60,13 @@ def span_labeling_baseline(dataset: List[Entry], entry_function: Callable[[List[
 
 if __name__ == "__main__":
     from mushroom.pipeline.data_connector.data_connector import read_dataset
+   
+
+    from pathlib import Path
+    project_root = Path(settings.project_root)
     
-    dataset = read_dataset("/home/dan/Things/uni/llm_class/mushroom/data/splits/val/v2/mushroom.en-val.v2.extra.jsonl")
+    file_path = project_root / "data/extra/splits/val/v2/mushroom.en-val.v2.extra.jsonl"
+    dataset = read_dataset(file_path)
     predictions = span_labeling_baseline(dataset)
     
     ious, cors = evaluate_span_labeling(predictions)
