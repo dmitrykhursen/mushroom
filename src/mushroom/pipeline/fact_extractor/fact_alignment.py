@@ -1,9 +1,12 @@
-from typing import Dict, List
+from pyexpat import model
+from typing import Dict, List, Tuple
 
-from llm import get_chat_model
+import json
+
+from .llm import get_chat_model
 
 
-def align_facts_to_text(facts: List[str], original_text: str) -> List[Dict]:
+def align_facts_to_text(facts: List[str], model_input: str, model_output_text: str) -> List[Dict]:
     """
     Uses LLM to find start-end character spans for each fact in the original text.
 
@@ -16,33 +19,71 @@ def align_facts_to_text(facts: List[str], original_text: str) -> List[Dict]:
     """
     facts_text = "\n".join(f"- {fact}" for fact in facts)
 
-    prompt = f"""
-Given the original text and a list of extracted atomic facts, find for each fact the start and end character index
-inside the original text where the fact appears or is most closely paraphrased.
+    system_prompt = prompt = """
+    You are given:
+    - model_input: the user’s original question or instruction  
+    - model_output_text: the raw text the model produced  
+    - facts: facts extracted from the model_output text
 
-Output JSON list like:
-[
-  {{ "fact": "fact text", "start": START_INDEX, "end": END_INDEX }},
-  ...
-]
+    Your job is to locate a key word in the model_output_text, for each fact. This key word should express the fact and distinct its meaning from other facts.
+    - Try to find such words, which would most likely be marked as untrue, if the original fact was untrue.
+    - Two facts cannot have the same keyword
 
-OR if the fact is hallucinated (no good match), you can set "start": -1, "end": -1.
+    Find the start and end character index inside the model_output_text for each of the located words.
+    - START and END indexes, should be integers
 
-ORIGINAL TEXT:
-\"\"\"{original_text}\"\"\"
+    Output JSON list like:
+    [
+      {{ "fact": "fact text", "word": key_word", "start": START, "end": END}},
+      ...
+    ]
+
+    Example1:
+    model_input:"Is the Arts and Humanities Citation Index still maintained?"
+    model_output_text:" Yes, the A&HCI is still being maintained by the University of Chicago. " {
+    facts: [
+        { "id": "F1", "text": "The A&HCI is still being maintained." },
+        { "id": "F2", "text": "The University of Chicago is maintaining the A\&HCI." },
+        { "id": "F3", "text": "A&HCI stands for Arts and Humanities Citation Index." }
+    ]
+    }
+    Output1:
+    [
+      { "fact": "The A&HCI is still being maintained.", "word": "Yes", "start": 1, "end": 3 },
+      { "fact": "The University of Chicago is maintaining the A&HCI.", "word": "University of Chicago", "start": 50, "end": 68 },
+      { "fact": "A&HCI stands for Arts and Humanities Citation Index.", "word": "A&HCI", "start": 10, "end": 15 }
+    ]
+    """
+
+    user_prompt = f"""
+model_input: "{model_input}"
+model_output_text"{model_output_text}"
+facts: {facts_text}
 
 FACTS:
 {facts_text}
-    """
+"""
 
-    chat_model = get_chat_model()  # Get the ChatOpenAI instance
-    response = chat_model(prompt)  # Use the instance to get the response
+    chat = get_chat_model()
+    response = chat.invoke([
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ])
+    # Parse the JSON output
+    try:
+        result = json.loads(response.content)
+    except json.JSONDecodeError:
+        raise ValueError(f"Invalid JSON from LLM: {response.content}")
 
-    spans = eval(
-        response
-    )  # You might want to use json.loads() if response is clean JSON
-    return spans
+    for i, entry in enumerate(result):
+        if not isinstance(entry, dict):
+            raise ValueError(f"Entry {i} not a dict: {entry}")
+        for key in ("fact","word","start","end"):
+            if key not in entry:
+                raise ValueError(f"Entry {i} missing {key}")
 
+    # simply return the LLM’s list of span‐dicts
+    return result
 
 def align_fact_to_text(fact: str, original_text: str) -> Dict:
     """
@@ -55,20 +96,41 @@ def align_fact_to_text(fact: str, original_text: str) -> Dict:
     Returns:
         Dict: A dict with 'start' and 'end' indices.
     """
-    prompt = f"""
-Given the original text and an extracted atomic fact, find the start and end character index
-inside the original text where the fact appears or is most closely paraphrased.
 
-Output JSON like:
-{{ "start": START_INDEX, "end": END_INDEX }}
+    prompt = """
+    You are given:
+    - model_input: the user’s original question or instruction  
+    - model_output_text: the raw text the model produced  
+    - facts: facts extracted from the model_output text
 
-OR if the fact is hallucinated (no good match), you can set "start": -1, "end": -1.
+    Your job is to locate a key word or continuous span of key words in the model_output_text, for each fact. 
+    - This key word should express the fact and distinct its meaning from other facts.
+    - Try to find such words, which would most likely be marked as untrue, if the original fact was untrue.
 
-ORIGINAL TEXT:
-\"\"\"{original_text}\"\"\"
+    Find the start and end character index inside the model_output_text for each of the located words.
+    - START and END indexes, should be integers
 
-FACT:
-- {fact}
+    Output JSON list like:
+    [
+      {{ "fact": "fact text", "word": "key word", "start": START, "end": END}},
+      ...
+    ]
+
+    Example1:
+    model_input:"Is the Arts and Humanities Citation Index still maintained?"
+    model_output_text:" Yes, the A&HCI is still being maintained by the University of Chicago. " {
+    facts: [
+        { "id": "F1", "text": "The A&HCI is still being maintained." },
+        { "id": "F2", "text": "The University of Chicago is maintaining the A\&HCI." },
+        { "id": "F3", "text": "A&HCI stands for Arts and Humanities Citation Index." }
+    ]
+    }
+    Output1:
+    [
+      { "fact": "The A&HCI is still being maintained.", "word": "Yes", "start": 1, "end": 3 },
+      { "fact": "The University of Chicago is maintaining the A&HCI.", "word": "University of Chicago", "start": 50, "end": 68 },
+      { "fact": "A&HCI stands for Arts and Humanities Citation Index.", "word": "A&HCI", "start": 10, "end": 15 }
+    ]
     """
 
     chat_model = get_chat_model()  # Get the ChatOpenAI instance

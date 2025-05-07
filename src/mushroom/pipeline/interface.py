@@ -1,6 +1,6 @@
 import dataclasses
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import dacite
 
@@ -42,6 +42,7 @@ class Entry:
     text_len: Optional[int] = None
 
     atomic_facts: Optional[List[AtomicFact]] = dataclasses.field(default_factory=list)
+    fact_spans: Optional[List[Dict]] = None
 
     retrieval_output: Optional[RetrievalOutput] = dataclasses.field(
         default_factory=RetrievalOutput
