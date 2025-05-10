@@ -1,5 +1,7 @@
 from typing import Any, List, Optional, Union
 
+from colorama import Fore, Style
+
 from mushroom.config import settings
 from mushroom.pipeline.data_connector import read_dataset, write_dataset
 from mushroom.pipeline.fact_extractor import fact_alignment, fact_extraction
@@ -9,6 +11,9 @@ from mushroom.pipeline.span_labeling.evaluate_span_labeling import \
 from mushroom.pipeline.span_labeling.span_labeling import \
     span_labeling_baseline
 
+def get_fact_with_span(fact_string: str, start: int, end: int) -> str:
+    return fact_string[0:start] + Fore.RED + fact_string[start:end] + Style.RESET_ALL + fact_string[end:]
+    # return fact_string[0:start] + ' <SPAN_START>' + fact_string[start:end] + ' <SPAN_END> ' + fact_string[end:]
 
 class Pipeline:
     def __call__(self, *args, **kwargs):
@@ -27,6 +32,7 @@ class Pipeline:
             entry.fact_spans = fact_alignment.align_facts_to_text(entry.atomic_facts, entry.model_input, entry.model_output_text)
             debug_i += 1
 
+            print('\n')
             print(entry.model_output_text)
             print("\nFact spans:")
             for span in entry.fact_spans:
@@ -37,6 +43,8 @@ class Pipeline:
                 snippet = entry.model_output_text[start:end]
                 print(f"Fact: {fact!r}")
                 print(f" Span chars [{start}:{end}]")
+                print(f"  Snippet: {snippet!r}")
+                print(f"   Fact with span: " + get_fact_with_span(entry.model_output_text, start, end))
 
         processed_dataset = span_labeling_baseline(dataset)
         
