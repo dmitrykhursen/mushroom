@@ -4,7 +4,7 @@ from colorama import Fore, Style
 
 from mushroom.config import settings
 from mushroom.pipeline.data_connector import read_dataset, write_dataset
-from mushroom.pipeline.fact_extractor import fact_alignment, fact_extraction
+from mushroom.pipeline.fact_extractor import fact_alignment, fact_extraction, fact_extraction_brf
 from mushroom.pipeline.interface import Entry
 from mushroom.pipeline.span_labeling.evaluate_span_labeling import \
     evaluate_span_labeling
@@ -26,10 +26,11 @@ class Pipeline:
         extracted_facts = []
         debug_i = 0
         for entry in dataset:
-            if debug_i > 5:
+            if debug_i > 10:
                 break
-            entry.atomic_facts = fact_extraction.extract_atomic_facts(entry.model_input, entry.model_output_text)
-            entry.fact_spans = fact_alignment.align_facts_to_text(entry.atomic_facts, entry.model_input, entry.model_output_text)
+            # entry.atomic_facts = fact_extraction.extract_atomic_facts(entry.model_input, entry.model_output_text)
+            # entry.fact_spans = fact_alignment.align_facts_to_text(entry.atomic_facts, entry.model_input, entry.model_output_text)
+            entry.fact_spans = fact_extraction_brf.extract_atomic_facts(entry.model_output_text)
             debug_i += 1
 
             print('\n')

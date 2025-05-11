@@ -1,6 +1,8 @@
 from mushroom.config import config, settings
-from langchain.chat_models import ChatOpenAI
-from langchain.embeddings import OpenAIEmbeddings
+# from langchain.chat_models import ChatOpenAI
+# from langchain.embeddings import OpenAIEmbeddings
+from langchain_community.chat_models import ChatOpenAI
+from langchain_community.embeddings import OpenAIEmbeddings
 
 
 def get_embedding_model() -> OpenAIEmbeddings:
