@@ -5,6 +5,7 @@ import ast
 from datasets import load_dataset
 from sentence_transformers import SentenceTransformer, util
 from transformers import LlamaForCausalLM, LlamaTokenizer
+from sentence_transformers import CrossEncoder
 
 # Select device (GPU if available)
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -89,6 +90,26 @@ def evaluate_retrieval(question_idx, k=3):
 
 # Main evaluation
 query, retrieved = evaluate_retrieval(question_idx=0, k=20)
+
+
+# Load cross-encoder reranker
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2", device=device)
+# Prepare input pairs (query, passage)
+rerank_inputs = [(query, r['passage_text']) for r in retrieved]
+# Get relevance scores from cross-encoder
+rerank_scores = reranker.predict(rerank_inputs)
+# Attach scores and rerank
+for i, r in enumerate(retrieved):
+    r['rerank_score'] = rerank_scores[i]
+
+# Sort by rerank score (descending)
+retrieved = sorted(retrieved, key=lambda x: x['rerank_score'], reverse=True)
+# Print top 5 reranked passages
+for i, r in enumerate(retrieved[:5]):
+    print(f"\nReranked #{i+1}")
+    print(f"Passage ID: {r['passage_id']}")
+    print(f"Cross-Encoder Score: {r['rerank_score']:.4f}")
+    print(f"Passage: {r['passage_text'][:200]}...")
 
 # OPTIONAL: Llama classification stub (currently commented out)
 # model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
