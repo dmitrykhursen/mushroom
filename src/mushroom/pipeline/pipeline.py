@@ -1,4 +1,5 @@
 from typing import Any, List, Optional, Union
+import json
 
 from colorama import Fore, Style
 
@@ -26,26 +27,30 @@ class Pipeline:
         extracted_facts = []
         debug_i = 0
         for entry in dataset:
-            if debug_i > 10:
-                break
+            #if debug_i > 3:
+            #   break
             # entry.atomic_facts = fact_extraction.extract_atomic_facts(entry.model_input, entry.model_output_text)
             # entry.fact_spans = fact_alignment.align_facts_to_text(entry.atomic_facts, entry.model_input, entry.model_output_text)
             entry.fact_spans = fact_extraction_brf.extract_atomic_facts(entry.model_output_text)
             debug_i += 1
 
-            print('\n')
-            print(entry.model_output_text)
-            print("\nFact spans:")
-            for span in entry.fact_spans:
-                fact  = span["fact"]
-                start = span["start"]
-                end   = span["end"]
-                # (optionally: word = span["word"])
-                snippet = entry.model_output_text[start:end]
-                print(f"Fact: {fact!r}")
-                print(f" Span chars [{start}:{end}]")
-                print(f"  Snippet: {snippet!r}")
-                print(f"   Fact with span: " + get_fact_with_span(entry.model_output_text, start, end))
+           # print('\n')
+            #print(entry.model_output_text)
+            #print("\nFact spans:")
+            #for span in entry.fact_spans:
+            #    fact  = span["fact"]
+            #    start = span["start"]
+            #    end   = span["end"]
+            #    # (optionally: word = span["word"])
+            #    snippet = entry.model_output_text[start:end]
+            #    print(f"Fact: {fact!r}")
+            #    print(f" Span chars [{start}:{end}]")
+            #    print(f"  Snippet: {snippet!r}")
+            #    print(f"   Fact with span: " + get_fact_with_span(entry.model_output_text, start, end))
+
+        entries_as_dict = [entry.to_dict() for entry in dataset]
+        with open("entries.json", "w", encoding="utf-8") as f:
+            json.dump(entries_as_dict, f, ensure_ascii=False, indent=2)
 
         processed_dataset = span_labeling_baseline(dataset)
         
