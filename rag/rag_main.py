@@ -11,7 +11,8 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f"Using device: {device}")
 
 # CONFIG: choose similarity metric: 'l2' or 'cosine'
-SIMILARITY_METRIC = 'cosine'  # Change to 'l2' to use L2 distance
+SIMILARITY_METRIC = 'cosine'
+#SIMILARITY_METRIC = 'l2'
 
 # Load datasets
 qs_dataset = load_dataset("rag-datasets/rag-mini-bioasq", "question-answer-passages")
@@ -24,7 +25,8 @@ embedder = SentenceTransformer("all-MiniLM-L6-v2", device=device)
 print("Encoding passages...")
 
 # Create embeddings
-passages = text_corpus_df['passage'].head(1000).tolist()
+#passages = text_corpus_df['passage'].head(10000).tolist()
+passages = text_corpus_df['passage'].tolist()
 passage_embeddings = embedder.encode(passages, convert_to_tensor=True, device=device)
 
 # Normalize if using cosine
@@ -86,7 +88,7 @@ def evaluate_retrieval(question_idx, k=3):
     return user_query, retrieved
 
 # Main evaluation
-query, retrieved = evaluate_retrieval(question_idx=0, k=10)
+query, retrieved = evaluate_retrieval(question_idx=0, k=20)
 
 # OPTIONAL: Llama classification stub (currently commented out)
 # model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
