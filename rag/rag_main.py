@@ -89,27 +89,46 @@ def evaluate_retrieval(question_idx, k=3):
     return user_query, retrieved
 
 # Main evaluation
-query, retrieved = evaluate_retrieval(question_idx=0, k=20)
+query, rag_retrieved = evaluate_retrieval(question_idx=0, k=20)
 
 
 # Load cross-encoder reranker
 reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2", device=device)
 # Prepare input pairs (query, passage)
-rerank_inputs = [(query, r['passage_text']) for r in retrieved]
+rerank_inputs = [(query, r['passage_text']) for r in rag_retrieved]
 # Get relevance scores from cross-encoder
 rerank_scores = reranker.predict(rerank_inputs)
 # Attach scores and rerank
-for i, r in enumerate(retrieved):
+for i, r in enumerate(rag_retrieved):
     r['rerank_score'] = rerank_scores[i]
 
 # Sort by rerank score (descending)
-retrieved = sorted(retrieved, key=lambda x: x['rerank_score'], reverse=True)
+cross_encoder_retrieved = sorted(rag_retrieved, key=lambda x: x['rerank_score'], reverse=True)
 # Print top 5 reranked passages
-for i, r in enumerate(retrieved[:5]):
+for i, r in enumerate(cross_encoder_retrieved[:5]):
     print(f"\nReranked #{i+1}")
     print(f"Passage ID: {r['passage_id']}")
     print(f"Cross-Encoder Score: {r['rerank_score']:.4f}")
     print(f"Passage: {r['passage_text'][:200]}...")
+
+
+# Load QA pipeline (you can try different models like PubMedBERT if needed)
+qa_model = "deepset/roberta-base-squad2"
+# qa_model = "ktrapeznikov/biobert_v1.1_pubmed_squad_v2"
+qa_model="allenai/biomed_roberta_base"
+
+qa_pipeline = pipeline("question-answering", model=qa_model, device=0 if device == "cuda" else -1)
+# Apply QA to top reranked passage
+top_passage = rag_retrieved[0]['passage_text']
+question = query
+# Get answer from QA model
+qa_result = qa_pipeline(question=question, context=top_passage)
+# Print result
+print("\n" + "=" * 100)
+print("QA-BASED ANSWER VALIDATION (ENTAILMENT-LIKE CHECK)")
+print(f"Question: {question}")
+print(f"Top Passage ID: {rag_retrieved[0]['passage_id']}")
+print(f"Answer from QA model: \"{qa_result['answer']}\" (Score: {qa_result['score']:.4f})")
 
 # OPTIONAL: Llama classification stub (currently commented out)
 # model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
