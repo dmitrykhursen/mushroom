@@ -4,7 +4,7 @@ import numpy as np
 import ast
 from datasets import load_dataset
 from sentence_transformers import SentenceTransformer, util
-from transformers import LlamaForCausalLM, LlamaTokenizer
+from transformers import pipeline, LlamaForCausalLM, LlamaTokenizer
 from sentence_transformers import CrossEncoder
 
 # Select device (GPU if available)
@@ -113,21 +113,21 @@ for i, r in enumerate(cross_encoder_retrieved[:5]):
 
 
 # Load QA pipeline (you can try different models like PubMedBERT if needed)
-qa_model = "deepset/roberta-base-squad2"
-# qa_model = "ktrapeznikov/biobert_v1.1_pubmed_squad_v2"
-qa_model="allenai/biomed_roberta_base"
+#qa_model = "deepset/roberta-base-squad2"
+qa_model = "ktrapeznikov/biobert_v1.1_pubmed_squad_v2"
+#qa_model="allenai/biomed_roberta_base"
 
 qa_pipeline = pipeline("question-answering", model=qa_model, device=0 if device == "cuda" else -1)
 # Apply QA to top reranked passage
 top_k = 5
 qa_results = []
 for i in range(top_k):
-    context = rag_retrieved[i]['passage_text']
+    #context = rag_retrieved[i]['passage_text']
 
-    # context = cross_encoder_retrieved[i]['passage_text']
+    context = cross_encoder_retrieved[i]['passage_text']
     result = qa_pipeline(question=query, context=context)
-    result["passage_id"] = retrieved[i]['passage_id']
-    result["context_snippet"] = context[:150]
+    result["passage_id"] = cross_encoder_retrieved[i]['passage_id']
+    result["context_snippet"] = context
     qa_results.append(result)
 
 # Sort by score
