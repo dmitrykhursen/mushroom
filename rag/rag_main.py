@@ -119,16 +119,26 @@ qa_model="allenai/biomed_roberta_base"
 
 qa_pipeline = pipeline("question-answering", model=qa_model, device=0 if device == "cuda" else -1)
 # Apply QA to top reranked passage
-top_passage = rag_retrieved[0]['passage_text']
-question = query
-# Get answer from QA model
-qa_result = qa_pipeline(question=question, context=top_passage)
-# Print result
-print("\n" + "=" * 100)
-print("QA-BASED ANSWER VALIDATION (ENTAILMENT-LIKE CHECK)")
-print(f"Question: {question}")
-print(f"Top Passage ID: {rag_retrieved[0]['passage_id']}")
-print(f"Answer from QA model: \"{qa_result['answer']}\" (Score: {qa_result['score']:.4f})")
+top_k = 5
+qa_results = []
+for i in range(top_k):
+    context = rag_retrieved[i]['passage_text']
+
+    # context = cross_encoder_retrieved[i]['passage_text']
+    result = qa_pipeline(question=query, context=context)
+    result["passage_id"] = retrieved[i]['passage_id']
+    result["context_snippet"] = context[:150]
+    qa_results.append(result)
+
+# Sort by score
+qa_results.sort(key=lambda x: x['score'], reverse=True)
+
+# Print top answer
+print("\n=== QA VALIDATION TOP ANSWER ===")
+top_ans = qa_results[0]
+print(f"Passage ID: {top_ans['passage_id']}")
+print(f"Answer: \"{top_ans['answer']}\" (Score: {top_ans['score']:.4f})")
+print(f"Context: {top_ans['context_snippet']}...")
 
 # OPTIONAL: Llama classification stub (currently commented out)
 # model = LlamaForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
