@@ -1,3 +1,4 @@
+#%%
 from typing import Any, List, Optional, Union
 
 from mushroom.config import settings
@@ -35,21 +36,25 @@ class Pipeline:
             "ious": ious,
             "cors": cors
         }
-        
+#%%
             
 if __name__ == "__main__":
+    #%%
     pipeline = Pipeline()
     
     from pathlib import Path
     project_root = Path(settings.project_root)
     
-    file_path = project_root / "data/extra/splits/val/v2/mushroom.en-val.v2.extra.jsonl"
+    file_path = project_root / "data/facts_retrieval_ready/entries_with_facts_and_retrieval.json"
     output_path = project_root / "outputs"
     
     output_path.mkdir(parents=True, exist_ok=True)
     output_file_path = output_path / "predictions.jsonl"
     
-    predictions = pipeline.run(file_path, output_file_path)
+    dataset = read_dataset(file_path)
+    
+    
+    predictions = pipeline.run(dataset, output_file_path)
     results = pipeline.evaluate(output_file_path)
 
 #%%
