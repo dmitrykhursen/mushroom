@@ -43,7 +43,7 @@ class Entry:
     annotations: Optional[Dict[str, List[List[int]]]] = None
     text_len: Optional[int] = None
 
-    fact_spans: Optional[List[AtomicFact]] = dataclass.field(default_factory=list)
+    fact_spans: Optional[List[AtomicFact]] = dataclasses.field(default_factory=list)
 
     retrieval_output: Optional[RetrievalOutput] = dataclasses.field(
         default_factory=RetrievalOutput
