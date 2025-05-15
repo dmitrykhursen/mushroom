@@ -1,20 +1,22 @@
+
 import dataclasses
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import dacite
 
 
 @dataclass
 class AtomicFact:
-    fact_phrase: Optional[str] = None
-    indices: Optional[List[int]] = None
+    fact: Optional[str] = None
+    start: Optional[int] = None
+    end: Optional[int] = None
 
 
 @dataclass
 class RetrievalOutput:
-    wiki_info: Optional[List[List[str]]] = None
-    llm_prompt: Optional[str] = None
+    retrieved: Optional[List[Dict]] = None
+    wiki_content: Optional[str] = None
 
 
 @dataclass
@@ -41,7 +43,7 @@ class Entry:
     annotations: Optional[Dict[str, List[List[int]]]] = None
     text_len: Optional[int] = None
 
-    atomic_facts: Optional[List[AtomicFact]] = dataclasses.field(default_factory=list)
+    fact_spans: Optional[List[AtomicFact]] = dataclass.field(default_factory=list)
 
     retrieval_output: Optional[RetrievalOutput] = dataclasses.field(
         default_factory=RetrievalOutput
