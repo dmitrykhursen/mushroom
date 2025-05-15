@@ -16,13 +16,13 @@ PROJECT_ROOT = Path(settings.project_root)
 
 
 def download_data() -> None:
-    output_folder = Path(PROJECT_ROOT) / "data"
+    output_directory = Path(PROJECT_ROOT) / "data"
     
-    Path(output_folder).mkdir(exist_ok=True)
-    for folder, url in URLS:
-        output_path = output_folder / folder
+    Path(output_directory).mkdir(exist_ok=True)
+    for directory, url in URLS:
+        output_path = output_directory / directory
         if output_path.exists():
-            print(f"{folder} already exists. Skipping download.")
+            print(f"{directory} already exists. Skipping download.")
             continue
         output_path.mkdir(exist_ok=True)
         response = requests.get(url)
@@ -35,7 +35,7 @@ def download_data() -> None:
             with zipfile.ZipFile(BytesIO(response.content)) as zip_ref:
                 zip_ref.extractall(output_path)
 
-        print(f"{folder} done. Files extracted to: {Path(output_path).absolute()}")
+        print(f"{directory} done. Files extracted to: {Path(output_path).absolute()}")
 
 if __name__ == "__main__":
     download_data()
