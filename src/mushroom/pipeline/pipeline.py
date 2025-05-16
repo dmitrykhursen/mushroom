@@ -27,8 +27,8 @@ class Pipeline:
         extracted_facts = []
         debug_i = 0
         for entry in dataset:
-            #if debug_i > 3:
-            #   break
+            if debug_i > 3:
+              break
             # entry.atomic_facts = fact_extraction.extract_atomic_facts(entry.model_input, entry.model_output_text)
             # entry.fact_spans = fact_alignment.align_facts_to_text(entry.atomic_facts, entry.model_input, entry.model_output_text)
             entry.fact_spans = fact_extraction_brf.extract_atomic_facts(entry.model_output_text)

@@ -2,7 +2,7 @@ import json
 
 from typing import List, Dict
 
-from .llm import get_chat_model
+from .llm import get_opensource_chat_model
 
 import re
 from colorama import Fore, Style
@@ -62,7 +62,7 @@ def get_facts_with_objects(model_output_text: str):
     Returns:
         List[str]: List of atomic fact strings.
     """
-    chat_model = get_chat_model()  # Get the ChatOpenAI instance
+    chat_model = get_opensource_chat_model()  # Get the ChatOpenAI instance
     system_prompt = """
 You are given: 
 - text: original text  
@@ -134,8 +134,8 @@ json
             {additional_input}
             text: {model_output_text}
          """
-
-        response = chat_model.invoke(
+        
+        response = chat_model(
             [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
@@ -143,7 +143,7 @@ json
 
         # Parse the JSON output
         try:
-            result = json.loads(response.content)
+            result = json.loads(response[0]["generated_text"][-1])
         except json.JSONDecodeError:
             print(f"Fact extraction [Attempt {attempt}]: JSON parse error, retrying…", file=sys.stderr)
             additional_input = "!!! Your output was not a valid JSON format. Make sure you are outputting valid JSON."
@@ -182,7 +182,7 @@ def determine_index_occurence(model_output_text: str, fact: str, fact_object: st
     Returns:
         int: The index of the occurrence to be used.
     """
-    chat_model = get_chat_model()  # Get the ChatOpenAI instance
+    chat_model = get_opensource_chat_model()  # Get the ChatOpenAI instance
     system_prompt = f"""
 You are given:
 - model_output_text: the original model output text
@@ -225,13 +225,13 @@ Return:
             fact_object: {fact_object}
          """
 
-        response = chat_model.invoke(
+        response = chat_model(
             [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
                 ])  # Use the chat model to get the response
 
-        response = eval(response.content )
+        response = eval(response[0]["generated_text"][-1])
 
         if not isinstance(response, int):
             print(f"Index occurence [Attempt {attempt}]: Failed to produce int, retrying...", file=sys.stderr)

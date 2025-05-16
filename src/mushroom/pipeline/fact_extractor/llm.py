@@ -1,34 +1,35 @@
-from mushroom.config import config, settings
-# from langchain.chat_models import ChatOpenAI
-# from langchain.embeddings import OpenAIEmbeddings
-from langchain_community.chat_models import ChatOpenAI
-from langchain_community.embeddings import OpenAIEmbeddings
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, BitsAndBytesConfig
+import torch
+from huggingface_hub import login
+
+login("")
 
 
-def get_embedding_model() -> OpenAIEmbeddings:
-    """
-    This function initializes and returns an instance of OpenAIEmbeddings.
-    It uses the OpenAI API key from the config module.
-    """
-    # Create an instance of OpenAIEmbeddings using the API key from config
-    embeddings = OpenAIEmbeddings(
-        model=config.EMBEDDING_MODEL, openai_api_key=config.OPENAI_API_KEY
+model_name = "google/gemma-2-2b"  # or any model you like
+
+def get_opensource_chat_model():
+    bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,                
+    bnb_4bit_quant_type="nf4",        
+    bnb_4bit_compute_dtype=torch.bfloat16, 
+    bnb_4bit_use_double_quant=True     
     )
 
-    return embeddings
+    tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
 
-
-def get_chat_model(temperature=0) -> ChatOpenAI:
-    """
-    This function initializes and returns an instance of ChatOpenAI.
-    It uses the OpenAI API key from the config module.
-    """
-    # Create an instance of ChatOpenAI using the API key from config
-    chat = ChatOpenAI(
-        openai_api_key=settings.fact_extractor.openai_api_key,
-        model=settings.fact_extractor.chat_model,
-        temperature=temperature,
-        max_tokens=settings.fact_extractor.max_tokens,
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        quantization_config = bnb_config,     
+        device_map="auto",        
+        torch_dtype=torch.float16 
     )
 
-    return chat
+    gen = pipeline(
+        "text-generation",
+        model=model,
+        tokenizer=tokenizer,
+        device_map="auto",
+        max_new_tokens=1000,
+    )
+
+    return gen
