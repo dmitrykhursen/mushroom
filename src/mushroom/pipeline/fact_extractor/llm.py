@@ -1,4 +1,4 @@
-from mushroom.config import config, settings
+from mushroom.config import settings
 # from langchain.chat_models import ChatOpenAI
 # from langchain.embeddings import OpenAIEmbeddings
 from langchain_community.chat_models import ChatOpenAI
@@ -12,7 +12,7 @@ def get_embedding_model() -> OpenAIEmbeddings:
     """
     # Create an instance of OpenAIEmbeddings using the API key from config
     embeddings = OpenAIEmbeddings(
-        model=config.EMBEDDING_MODEL, openai_api_key=config.OPENAI_API_KEY
+        model=settings.fact_extractor.embedding_model, openai_api_key=settings.fact_extractor.openai_api_key
     )
 
     return embeddings
