@@ -81,6 +81,8 @@ You are given an *input prompt*, the *output from an LLM (large language model)*
 - Irrelevant or off-topic information is not considered a hallucination if it does not contradict the context.
 - Concentrate on identifying hallucinations that are explicitly factually incorrect or explicitly contradicted by the reference context.
 - Mark each hallucinated span or sentence, and briefly justify why it is hallucinated, citing any contradictions.
+- For instance, if the LLM stated the year incorrectly, point to the year.
+- Do not include grammatical errors or stylistic issues in your analysis.
 
 Hallucination Analysis:
 - List all hallucinated spans.
@@ -110,8 +112,10 @@ class SpanLabeling:
     def __init__(self):
         
         self.client = AsyncOpenAI(
-            base_url="http://localhost:8000/v1",
-            api_key="token-abc123",
+            # base_url="http://localhost:8000/v1",
+            # api_key="token-abc123",
+              base_url='http://localhost:11434/v1', # ollama server endpoint
+            api_key='ollama', # placeholder
         )
 
     
@@ -128,7 +132,7 @@ class SpanLabeling:
     
     async def call_llm(self, question: str, fact: str, wiki: str) -> str:
         completion = await self.client.completions.create(
-        model="google/gemma-3-27b-it",
+        model="gemma-3-27b-it",
         prompt=prompt_classify.format(
             question=question,
             fact=fact,
@@ -270,31 +274,70 @@ class SpanLabelingSpans(SpanLabeling):
         matches = [(m.start(), m.end()) for m in re.finditer(r'\S+', llm_output)]
         llm_output_modified = " ".join([f"|>{s}<|{llm_output[s:e]}" for s,e in matches])
         
-        completion = await self.client.completions.create(
-        model="google/gemma-3-27b-it",
-        prompt=prompt_spans.format(
-            question=question,
-            llm_output=llm_output_modified,
-            wiki=wiki,
-            json_schema=HallucinationDetectionSpansReturn.model_json_schema(),
-        ),
-        max_tokens=1024,
-        temperature=0.7,
-        top_p=0.9,
-        seed=1,
-        extra_body={
-            "guided_json": HallucinationDetectionSpansReturn.model_json_schema(),
-            # "guided_decoding_backend": "outlines"
-        },
-        )
+        
+        
+        
+        llm_output_modified = add_positions(llm_output)
+        
+        
+        try: 
+            completion = await self.client.beta.chat.completions.parse(
+            model="gemma3:27b-it-qat",
+            messages=[{"role": "user", "content": 
+            
+            
+            prompt_spans.format(
+                question=question,
+                llm_output=llm_output_modified,
+                wiki=wiki,
+                json_schema=HallucinationDetectionSpansReturn.model_json_schema(),
+            ),
+            
+            
+            
+                }],
+        
+            max_tokens=1024,
+            temperature=0.7,
+            top_p=0.9,
+            response_format=HallucinationDetectionSpansReturn,
+            )
+        except Exception as e:
+            print("Error in LLM call:", e)
+            return HallucinationDetectionSpansReturn(
+                spans=[],
+            )
+        
+        
+        
+        # completion = await self.client.completions.create(
+        # model="google/gemma-3-27b-it",
+        # prompt=
+        # prompt_spans.format(
+        #     question=question,
+        #     llm_output=llm_output_modified,
+        #     wiki=wiki,
+        #     json_schema=HallucinationDetectionSpansReturn.model_json_schema(),
+        # ),
+        # max_tokens=1024,
+        # temperature=0.7,
+        # top_p=0.9,
+        # seed=1,
+        # extra_body={
+        #     "guided_json": HallucinationDetectionSpansReturn.model_json_schema(),
+        #     # "guided_decoding_backend": "outlines"
+        # },
+        # )
 
-        response_text = completion.choices[0].text
+        # response_text = completion.choices[0].text
+
         try:
-            parsed_output = HallucinationDetectionSpansReturn.model_validate_json(response_text)
+            # parsed_output = HallucinationDetectionSpansReturn.model_validate_json(response_text)
+            parsed_output = completion.choices[0].message.parsed
             print("Parsed output:", parsed_output)
         except Exception as e:
             print("Error parsing output:", e)
-            print("Response text:", response_text)
+            print("Response text:", completion.choices[0].message.content)
             parsed_output = HallucinationDetectionSpansReturn(
                 spans=[],
             )
@@ -314,11 +357,14 @@ class SpanLabelingSpans(SpanLabeling):
             wiki=wiki_text,)
         
         for span in span_output.spans:
-            entry.span_labeling_output.hard_predictions.append([span.start, span.end])
+            start = span.start
+            end = span.start + len(span.text)
+            
+            entry.span_labeling_output.hard_predictions.append([start, end])
             entry.span_labeling_output.soft_predictions.append(
                 {
-                    "start": span.start,
-                    "end": span.end,
+                    "start": start,
+                    "end": end,
                     "prob": 1.0
                 }
             )
@@ -424,7 +470,15 @@ class SpanLabelingBaselineAll(SpanLabeling):
         return entry
     
             
-        
+def add_positions(text):
+    out = ""
+    
+    for i in range(len(text)):
+        if ((i > 0 and text[i - 1].isspace()) or i == 0) and not text[i].isspace():
+            out += f"|>{i}<|"
+            
+        out += text[i]
+    return out
         
 
     
@@ -485,88 +539,149 @@ if __name__ == "__main__":
     predictions_span = await span_labeling_span.run(dataset)
     
     
-    #%%
+#     #%%
     
     
 
     
-    #%%
+#     #%%
     
-    for entry in predictions_span:
-        # print(entry.span_labeling_output.hard_predictions)
-        # for start, end in entry.span_labeling_output.hard_predictions:
-        #     print(entry.model_output_text[start:end])
+#     for entry in predictions_span:
+#         # print(entry.span_labeling_output.hard_predictions)
+#         # for start, end in entry.span_labeling_output.hard_predictions:
+#         #     print(entry.model_output_text[start:end])
         
-        for i, span in enumerate(entry.span_labeling_output.hard_predictions):
-            print(i, span)
-            start, end = span
+#         for i, span in enumerate(entry.span_labeling_output.hard_predictions):
+#             print(i, span)
+#             start, end = span
             
-            # entry.span_labeling_output.hard_predictions[i] = [start, end]
-            entry.span_labeling_output.hard_predictions[i] = [start, min(end, len(entry.model_output_text))]
+#             # entry.span_labeling_output.hard_predictions[i] = [start, end]
+#             entry.span_labeling_output.hard_predictions[i] = [start, min(end, len(entry.model_output_text))]
             
             
-            print(entry.retrieval_output.wiki_content) 
-        for span in entry.span_labeling_output.soft_predictions:
-            start, end = span["start"], span["end"]
+#             print(entry.retrieval_output.wiki_content) 
+#         for span in entry.span_labeling_output.soft_predictions:
+#             start, end = span["start"], span["end"]
             
-            span["end"] = min(end, len(entry.model_output_text))
+#             span["end"] = min(end, len(entry.model_output_text))
             
         
-        print(entry.span_labeling_output.soft_predictions)
-        print()
-        # entry.span_labeling_output.hard_predictions = list(set(entry.span_labeling_output.hard_predictions))
-        # entry.span_labeling_output.soft_predictions = list(set(entry.span_labeling_output.soft_predictions))
+#         print(entry.span_labeling_output.soft_predictions)
+#         print()
+#         # entry.span_labeling_output.hard_predictions = list(set(entry.span_labeling_output.hard_predictions))
+#         # entry.span_labeling_output.soft_predictions = list(set(entry.span_labeling_output.soft_predictions))
         
         
-    #%%
+#     #%%
     
     
     
-    ious, cors = evaluate_span_labeling(predictions_span)
-    print("IOUs:", ious.mean())
-    print("CORs:", cors.mean())
-    #%%
-    llm_output = "The capital; of France is Paris."
+#     ious, cors = evaluate_span_labeling(predictions_span)
+#     print("IOUs:", ious.mean())
+#     print("CORs:", cors.mean())
     
-    # add indices to llm_output for more robust result
-    matches = [(m.start(), m.end()) for m in re.finditer(r'\S+', llm_output)]
-    llm_output_modified = " ".join([f"|>{s}<|{llm_output[s:e]}" for s,e in matches])
+#     #%%
+#     client = OpenAI(
+#         base_url='http://localhost:11434/v1', # ollama server endpoint
+#         api_key='ollama', # placeholder
+#     )
     
-    llm_output_modified
-    #
+#     client.beta.completions.parse(
+#         model="gemma3:27b-it-qat",
+#         prompt="aaaa",
+#         response_format=HallucinationDetectionSpansReturn,
+#     )
+#     #%%
+#     text ='''
+# I have two pets.
+# A cat named Luna who is 5 years old and loves playing with yarn. She has grey fur.
+# I also have a 2 year old black cat named Loki who loves tennis balls.
+#             '''
+            
+#     llm_output_modified = add_positions(text)
+    
+    
+#     inp = """
+    
+#     just list the correct spans in the llm output. The correct indices are marked with "|>*index*<|".
+    
+#     {llm_output}
+    
+    
+#     """
+    
+#     inp = inp.format(llm_output=llm_output_modified)
+#     print(inp)
+#     #%%
+    
+#     #%%
+#     a = client.beta.chat.completions.parse(
+#         model="gemma3:27b-it-qat",
+#         messages=[{"role": "user", "content": inp}],
+        
+        
+        
+#         response_format=HallucinationDetectionSpansReturn,
+        
+#     )
+    
+#     #%%
+    
+#     #%%
+#     for span in a.choices[0].message.parsed.spans:
+#         # print(span.reason)
+#         print(span.text)
+#         # print(text[span.start:span.end])
+#         # print(text[span.start:span.end])
+#         print(text[span.start:span.start + len(span.text)])
+#         print(span.start, span.end)
+        
+#         print(span.text == text[span.start:span.start + len(span.text)])
+        
+#     #%%
+#     text[0]
+#     #%%
+#     llm_output = "The capital; of France is Paris."
+    
+#     # add indices to llm_output for more robust result
+#     matches = [(m.start(), m.end()) for m in re.finditer(r'\S+', llm_output)]
+#     llm_output_modified = " ".join([f"|>{s}<|{llm_output[s:e]}" for s,e in matches])
+    
+#     llm_output_modified
+#     #
     
     
     
-#%%
-s = """
-Format your response as a JSON object:
-{{
-    "spans": [
-        {{
-            "start": <start_index>,
-            "end": <end_index>,
-            "text": "<text_of_the_hallucinated_span>",
-            "reason": "<reason_for_hallucination>",
-            "label": "<hallucination_label>",
-        }},
-        ...
-    ]      
-}}
+# #%%
+# s = """
+# Format your response as a JSON object:
+# {{
+#     "spans": [
+#         {{
+#             "start": <start_index>,
+#             "end": <end_index>,
+#             "text": "<text_of_the_hallucinated_span>",
+#             "reason": "<reason_for_hallucination>",
+#             "label": "<hallucination_label>",
+#         }},
+#         ...
+#     ]      
+# }}
 
-Now, analyze the following:
-(Input prompt, LLM output, and reference context will be provided below.)
+# Now, analyze the following:
+# (Input prompt, LLM output, and reference context will be provided below.)
 
-Input Prompt:
-{question}
+# Input Prompt:
+# {question}
 
-LLM Output:
-{llm_output}
+# LLM Output:
+# {llm_output}
 
-Reference Context:
-{wiki}
-"""
+# Reference Context:
+# {wiki}
+# """
 
 
-s.format(question="What is the capital of France?", llm_output="The capital; of France is Paris.", wiki="The capital of France is Paris.")
-# %%
-HallucinationDetectionSpansReturn.model_json_schema()
+# s.format(question="What is the capital of France?", llm_output="The capital; of France is Paris.", wiki="The capital of France is Paris.")
+# # %%
+# HallucinationDetectionSpansReturn.model_json_schema()
