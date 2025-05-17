@@ -13,7 +13,8 @@ class FactExtractorSettings(BaseModel):
 
 
 class RetrievalSettings(BaseModel):
-    pass
+    model_name: str = 'all-MiniLM-L6-v2'
+    top_k: int = 3
 
 
 class SpanLabelingSettings(BaseModel):
