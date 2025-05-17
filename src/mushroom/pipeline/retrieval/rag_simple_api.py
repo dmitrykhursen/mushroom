@@ -1,6 +1,6 @@
 import requests
 import re
-from mistralai import Mistral
+# from mistralai import Mistral
 import json
 import logging
 
