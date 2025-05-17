@@ -9,13 +9,14 @@ dependencies = [
     "dacite>=1.9.2",
     "langchain>=0.3.25",
     "openai>=1.77.0",
-    "outlines[vllm]>=0.1.11",
     "pandas>=2.2.3",
     "pydantic>=2.11.4",
     "pydantic-settings>=2.9.1",
     "scipy>=1.15.2",
+    "sentence-transformers>=4.1.0",
     "setuptools>=80.7.1",
     "vllm>=0.8.5.post1",
+    "wikipedia>=1.4.0",
 ]
 
 [build-system]
