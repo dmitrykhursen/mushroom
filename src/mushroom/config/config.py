@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).absolute().parent.parent.parent.parent.as_posix()
+
 
 class FactExtractorSettings(BaseModel):
     openai_api_key: str | None = None
@@ -15,7 +17,12 @@ class RetrievalSettings(BaseModel):
 
 
 class SpanLabelingSettings(BaseModel):
-    pass
+    api_base_url: str | None = None
+    api_key: str | None = None
+    model_name: str | None = None
+    max_tokens: int | str | None = 1024
+    temperature: float | str | None = 0.7
+    top_p: float | str | None = 0.9
 
 
 class Settings(BaseSettings):
@@ -23,7 +30,7 @@ class Settings(BaseSettings):
     Load and manage configuration settings for the app and each pipeline step.
     """
     
-    project_root: str = Path(__file__).absolute().parent.parent.parent.parent.as_posix()
+    project_root: str = PROJECT_ROOT
 
     fact_extractor: FactExtractorSettings = Field(
         default_factory=FactExtractorSettings,
@@ -40,7 +47,7 @@ class Settings(BaseSettings):
 
     class Config:
         extra = "allow"
-        env_file = ".env.example", ".env"
+        env_file =  Path(PROJECT_ROOT) / ".env.example", Path(PROJECT_ROOT) / ".env",
         env_file_encoding = "utf-8"
         case_sensitive = True
         env_nested_delimiter = "__"
