@@ -12,6 +12,7 @@ from copy import deepcopy
 from openai import OpenAI, AsyncOpenAI
 import aiohttp
 from concurrent.futures import ThreadPoolExecutor
+from tqdm.asyncio import tqdm_asyncio
 
 prompt_get_wiki_title = """
 Given this question: '{question}'
@@ -95,16 +96,14 @@ class Retrieval:
         title = await self.get_page_title(entry)
         if not title:
             return entry
-
+        
         content = self.fetch_wikipedia_content(title)
         sentences = self.split_into_sentences(content)
         chunks = self.sliding_windows(sentences, 1)
 
         if not chunks:
-            entry.retrieval_output = {
-                "retrieved": [],
-                "wiki_content": content
-            }
+            entry.retrieval_output.retrieved = []
+            entry.retrieval_output.wiki_content = content
             return entry
 
         embeddings = self.model.encode(chunks, convert_to_numpy=True)
@@ -130,7 +129,7 @@ class Retrieval:
 
             retrieved.append({
                 "fact": fact_text,
-                "top_3": top_chunks
+                "chunks": top_chunks
             })
 
         entry.retrieval_output = RetrievalOutput(
@@ -143,15 +142,30 @@ class Retrieval:
     async def run(self, dataset: List[Entry]) -> List[Entry]:
         dataset = deepcopy(dataset)
         tasks = [self.process_entry(entry) for entry in dataset]
-        processed = await asyncio.gather(*tasks)
+        processed = await tqdm_asyncio.gather(*tasks, desc="Retrieval")
         return processed
 
     def __call__(self, *args, **kwargs):
         try:
             loop = asyncio.get_running_loop()
-            return loop.create_task(self.run(*args, **kwargs))
+            # return loop.create_task(self.run(*args, **kwargs))
         except RuntimeError:
             return asyncio.run(self.run(*args, **kwargs))
+        else:
+            def run_async_in_thread(coro):
+                result_container = {}
+                def runner():
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    result_container['result'] = loop.run_until_complete(coro)
+                    loop.close()
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(runner)
+                    future.result()
+                return result_container['result']
+            
+            return run_async_in_thread(self.run(*args, **kwargs))
+            
 #%%
 # Example usage (if run as script)
 if __name__ == "__main__":
