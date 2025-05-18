@@ -95,6 +95,8 @@ class Retrieval:
     async def process_entry(self, entry: Entry) -> Entry:
         title = await self.get_page_title(entry)
         if not title:
+            entry.retrieval_output.retrieved = []
+            entry.retrieval_output.wiki_content = content
             return entry
         
         content = self.fetch_wikipedia_content(title)
