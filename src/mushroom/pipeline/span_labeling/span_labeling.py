@@ -299,10 +299,6 @@ if __name__ == "__main__":
     
     dataset = read_dataset(file_path)
     
-    for entry in dataset:
-        for retrieved_i in entry.retrieval_output.retrieved:
-            retrieved_i["chunks"] = retrieved_i["top_3"]
-            del retrieved_i["top_3"]
             
             
     
