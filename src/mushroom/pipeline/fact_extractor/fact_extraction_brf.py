@@ -1,11 +1,22 @@
 import json
 import re
 import sys
-from typing import List, Dict
+from typing import List, Dict, Optional
 from colorama import Fore, Style
+from pydantic_settings import BaseSettings
+from openai import OpenAI
+from copy import deepcopy
 
-from .llm import get_chat_model
-from .prompts import FACT_EXTRACTION, INDEXING
+from mushroom.pipeline.interface import AtomicFact
+
+from mushroom.config import settings
+from mushroom.pipeline.fact_extractor.llm import get_chat_model
+from mushroom.pipeline.fact_extractor.prompts import FACT_EXTRACTION, INDEXING
+from mushroom.pipeline.fact_extractor.models import (
+    FactExtractionReturn,
+    FactExtractionIndexReturn
+)
+from tqdm import tqdm
 
 from mushroom.pipeline.interface import Entry
 
@@ -14,12 +25,20 @@ REQUIRED_KEYS = {"Predicate", "Subject", "Object", "Reformulation"}
 
 
 class FactExtraction:
-    def __init__(self):
-        self.chat_model = get_chat_model()
+    def __init__(self, config: Optional[BaseSettings] = None):
+        self.config = config if config is not None else settings
+        self.client = OpenAI(
+            base_url=self.config.fact_extractor.api_base_url,
+            api_key=self.config.fact_extractor.api_key,
+        )
         self.system_prompts = {
             "extract": FACT_EXTRACTION,
             "index": INDEXING
         }
+        
+    def __call__(self, *args, **kwargs):
+        return self.run(*args, **kwargs)
+        
 
     def run(self, entries: List[Entry]) -> List[Entry]:
         """
@@ -33,7 +52,8 @@ class FactExtraction:
             -------
             List[Entry]
         """
-        for entry in entries:
+        entries = deepcopy(entries)
+        for entry in tqdm(entries, desc="Fact Extraction"):
             entry.fact_spans = self.extract_atomic_facts(entry.model_output_text)
         return entries
 
@@ -73,11 +93,13 @@ class FactExtraction:
                 occurence_index = self.determine_index_occurence(model_output_text, fact["Reformulation"], fact["Object"], len(matches)) - 1
                 start, end = matches[occurence_index], matches[occurence_index] + len(fact["Object"])
 
-            fact_claims_with_spans.append({
-                "fact": fact["Reformulation"],
-                "start": start,
-                "end": end,
-            })
+            fact_claims_with_spans.append(
+                AtomicFact(
+                    fact=fact["Reformulation"],
+                    start=start,
+                    end=end,
+                )    
+            )
   
         return fact_claims_with_spans
 
@@ -101,23 +123,35 @@ class FactExtraction:
                 {additional_input}
                 text: {model_output_text}
              """
-
-            response = self.chat_model.invoke(
-                [
+             
+            messages = [
+                 
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
-                    ])  # Use the chat model to get the response
+                    # Use the chat model to get the response
+             ]
+             
+            response = self.client.beta.chat.completions.parse(
+                model=self.config.fact_extractor.model_name,
+                messages=messages,
+                max_tokens=self.config.fact_extractor.max_tokens,
+                temperature=self.config.fact_extractor.temperature,
+                response_format=FactExtractionReturn,
+            )
+            
+            
+
 
             # Parse the JSON output
             try:
-                result = json.loads(response.content)
+                result = response.choices[0].message.parsed
             except json.JSONDecodeError:
                 print(f"Fact extraction [Attempt {attempt}]: JSON parse error, retrying…", file=sys.stderr)
                 additional_input = "!!! Your output was not a valid JSON format. Make sure you are outputting valid JSON."
                 continue
 
             # Validate 
-            facts = result.get("facts")
+            facts = result.facts
             for fact in facts:
                 missing = REQUIRED_KEYS - fact.keys()
                 if missing:
@@ -133,7 +167,6 @@ class FactExtraction:
 
         print(f"Fact extraction: All atempts at producing JSON failed, I am giving up", file=sys.stderr)
         return []
-
 
 
     def determine_index_occurence(self, model_output_text: str, fact: str, fact_object: str, number_of_occurences: int) -> int:
@@ -160,15 +193,23 @@ class FactExtraction:
                 fact_object: {fact_object}
                 number_of_occurencies: {number_of_occurences}
              """
-
-            response = self.chat_model.invoke(
-                [
+             
+             
+            messages = [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
-                    ])  # Use the chat model to get the response
+                    ]
+
+            response = self.client.beta.chat.completions.parse(
+                    model=self.config.fact_extractor.model_name,
+                    messages=messages,
+                    max_tokens=self.config.fact_extractor.max_tokens,
+                    temperature=self.config.fact_extractor.temperature,
+                    response_format=FactExtractionIndexReturn,
+                )
 
             try: 
-                response = int(response.content)
+                response = int(response.choices[0].message.parsed.index)
             except ValueError:
                 print(f"Index occurence [Attempt {attempt}]: Failed to produce int, retrying...", file=sys.stderr)
                 additional_input = "!!!!!! You did not produce a number. Make sure you ar eproducing a singloe number !!!!!"
