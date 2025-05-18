@@ -5,7 +5,7 @@ import faiss
 import asyncio
 from sentence_transformers import SentenceTransformer
 from typing import List, Optional
-from mushroom.pipeline.interface import Entry
+from mushroom.pipeline.interface import Entry, RetrievalOutput
 from mushroom.config import settings
 from pydantic_settings import BaseSettings
 from copy import deepcopy
@@ -133,10 +133,11 @@ class Retrieval:
                 "top_3": top_chunks
             })
 
-        entry.retrieval_output = {
-            "retrieved": retrieved,
-            "wiki_content": content
-        }
+        entry.retrieval_output = RetrievalOutput(
+            retrieved=retrieved,
+            wiki_content=content,
+            wiki_page_title=title
+        )
         return entry
 
     async def run(self, dataset: List[Entry]) -> List[Entry]:
@@ -169,5 +170,5 @@ if __name__ == "__main__":
     
     #%%
     retrieval_step = Retrieval()
-    predictions = retrieval_step(dataset[:10])
+    predictions = retrieval_step(dataset)
     predictions
