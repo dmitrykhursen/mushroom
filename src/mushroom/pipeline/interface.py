@@ -17,6 +17,7 @@ class AtomicFact:
 class RetrievalOutput:
     retrieved: Optional[List[Dict]] = None
     wiki_content: Optional[str] = None
+    wiki_page_title: Optional[str] = None
 
 
 @dataclass
