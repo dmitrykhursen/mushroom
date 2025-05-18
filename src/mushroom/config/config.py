@@ -13,8 +13,15 @@ class FactExtractorSettings(BaseModel):
 
 
 class RetrievalSettings(BaseModel):
-    model_name: str = 'all-MiniLM-L6-v2'
-    top_k: int = 3
+    embed_model_name: str = 'all-MiniLM-L6-v2'
+    llm_model_name: str = "phi-4"
+    top_k: int = 3,
+    api_base_url: str = "http://localhost:1234/v1"
+    api_key: str | None = "dummy_key"
+    wiki_lang_code: str = "en"
+    max_tokens: int | str | None = 1024
+    temperature: float | str | None = 0.7
+    top_p: float | str | None = 0.9
 
 
 class SpanLabelingSettings(BaseModel):

@@ -1,27 +1,56 @@
 #%%
-import json
 import re
-from urllib.parse import unquote, urlparse
 import wikipedia
-import numpy as np
-# import faiss
+import faiss
+import asyncio
 from sentence_transformers import SentenceTransformer
 from typing import List, Optional
 from mushroom.pipeline.interface import Entry
 from mushroom.config import settings
 from pydantic_settings import BaseSettings
 from copy import deepcopy
+from openai import OpenAI, AsyncOpenAI
+import aiohttp
+from concurrent.futures import ThreadPoolExecutor
+
+prompt_get_wiki_title = """
+Given this question: '{question}'
+Formulate a search query to wikipedia which will find pages relevant to this question.
+The query should be a word or phrase which likely be contained in the relevant page's title.
+Make the query as clean as possible e.g. just one relevant named entity only which is the question's subject.
+OUTPUT THE SEARCH QUERY ONLY, ABSOLUTELY NOTHING BESIDES THE QUERY, NO OTHER NOTES!
+Examples:
+Question: "What is the capital of the Czech Republic?" You answer: "Czech Republic"
+Question "When Albert Einstein was born?" You answer: "Albert Einstein"
+"""
+
+class WikiApi:
+    def __init__(self, lang_code):
+        self._base_url = f"https://api.wikimedia.org/core/v1/wikipedia/{lang_code}/search/page"
+
+    async def search(self, search_string):
+        params = {
+            'q': search_string,
+            'limit': 1,
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.get(self._base_url, params=params) as response:
+                response.raise_for_status()
+                json_data = await response.json()
+                api_results = json_data.get('pages', [])
+                if not api_results:
+                    return None
+                return api_results[0]['title']
 
 class Retrieval:
     def __init__(self, config: Optional[BaseSettings] = None):
         self.config = config if config is not None else settings
-        # self.model = SentenceTransformer(self.config.model_name)
-
-    def normalize_url_and_extract_title(self, url):
-        decoded = unquote(url)
-        parsed = urlparse(decoded)
-        title = parsed.path.split("/wiki/")[-1].replace("_", " ")
-        return title
+        self.model = SentenceTransformer(self.config.retrieval.embed_model_name)
+        self.client = AsyncOpenAI(
+            base_url=self.config.retrieval.api_base_url,
+            api_key=self.config.retrieval.api_key,
+        )
+        self.wiki_api = WikiApi(lang_code=self.config.retrieval.wiki_lang_code)
 
     def fetch_wikipedia_content(self, title):
         try:
@@ -45,14 +74,28 @@ class Retrieval:
 
     def sliding_windows(self, sentences, window_size):
         return [" ".join(sentences[i:i+window_size]) for i in range(len(sentences)-window_size+1)]
-    # def get_url_from_api(self, ):
+
+    async def get_page_title(self, entry: Entry) -> str:
+        _prompt = prompt_get_wiki_title.format(question=entry.model_input)
+        messages: list = [{
+            "role": "user", "content": _prompt
+        }]
+        completion = await self.client.beta.chat.completions.parse(
+            model=self.config.retrieval.llm_model_name,
+            messages=messages,
+            max_tokens=self.config.retrieval.max_tokens,
+            temperature=self.config.retrieval.temperature,
+            top_p=self.config.retrieval.top_p,
+        )
+        wiki_query = completion.choices[0].message.content
+        title = await self.wiki_api.search(wiki_query)
+        return title
         
-    def process_entry(self, entry: Entry) -> Entry:
-        url = getattr(entry, "wikipedia_url", None)
-        if not url:
+    async def process_entry(self, entry: Entry) -> Entry:
+        title = await self.get_page_title(entry)
+        if not title:
             return entry
 
-        title = self.normalize_url_and_extract_title(url)
         content = self.fetch_wikipedia_content(title)
         sentences = self.split_into_sentences(content)
         chunks = self.sliding_windows(sentences, 1)
@@ -78,7 +121,7 @@ class Retrieval:
                 continue
             query = self.model.encode([fact_text], convert_to_numpy=True)
             faiss.normalize_L2(query)
-            distances, indices = index.search(query, self.config.top_k)
+            distances, indices = index.search(query, self.config.retrieval.top_k)
 
             top_chunks = []
             for score, idx in zip(distances[0], indices[0]):
@@ -95,15 +138,19 @@ class Retrieval:
             "wiki_content": content
         }
         return entry
-    
-    def run(self, dataset: List[Entry]) -> List[Entry]:
-        dataset = deepcopy(dataset)
-        for entry in dataset:
-            entry = self.process_entry(entry)
-        return dataset
 
-    def __call__(self, *args, **kwargs) -> List[Entry]:
-        return self.run(*args, **kwargs)
+    async def run(self, dataset: List[Entry]) -> List[Entry]:
+        dataset = deepcopy(dataset)
+        tasks = [self.process_entry(entry) for entry in dataset]
+        processed = await asyncio.gather(*tasks)
+        return processed
+
+    def __call__(self, *args, **kwargs):
+        try:
+            loop = asyncio.get_running_loop()
+            return loop.create_task(self.run(*args, **kwargs))
+        except RuntimeError:
+            return asyncio.run(self.run(*args, **kwargs))
 #%%
 # Example usage (if run as script)
 if __name__ == "__main__":
@@ -122,4 +169,5 @@ if __name__ == "__main__":
     
     #%%
     retrieval_step = Retrieval()
-    predictions = retrieval_step(dataset)
+    predictions = retrieval_step(dataset[:10])
+    predictions
