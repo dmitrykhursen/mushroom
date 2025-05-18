@@ -126,10 +126,15 @@ class SpanLabeling:
             
             messages = self.build_messages(_prompt)
             tasks.append(self.call_llm(messages, HallucinationDetectionReturn))
-        responses = await tqdm_asyncio.gather(*tasks, desc="Span Labeling facts in one entry")
+        # responses = await tqdm_asyncio.gather(*tasks, desc="Span Labeling facts in one entry")
+        responses = await asyncio.gather(*tasks)
         
-        for response in responses:
+        for fact_i, response in zip(facts, responses):
         # response = await self.call_llm(messages, HallucinationDetectionReturn)
+        
+            start = fact_i.start
+            end = fact_i.end
+
             if response.label == HallucinationDetectionEnum.HALLUCINATED:
                 entry.span_labeling_output.hard_predictions.append([start, end])
                 entry.span_labeling_output.soft_predictions.append(
@@ -219,6 +224,14 @@ class SpanLabelingBaselineAll(SpanLabeling):
         
         wiki_text = retrieval_outputs.wiki_content
         model_output_text = entry.model_output_text
+       
+        try:
+            for fact_i, retrieval_i in zip(facts, retrieval_outputs.retrieved): pass
+        except Exception as e:
+            print(facts)
+            print(retrieval_outputs)
+            print(retrieval_outputs.retrieved)
+                # assert fact_i.fact == retrieval_i["fact"] 
         
         for fact_i, retrieval_i in zip(facts, retrieval_outputs.retrieved):
             assert fact_i.fact == retrieval_i["fact"]
@@ -240,6 +253,34 @@ class SpanLabelingBaselineAll(SpanLabeling):
         return entry
     
             
+class SpanLabelingBaselineAllWords(SpanLabeling):
+    async def process_entry(self, entry: Entry) -> Entry:
+        facts = entry.fact_spans
+        
+        retrieval_outputs = entry.retrieval_output
+        
+        wiki_text = retrieval_outputs.wiki_content
+        model_output_text = entry.model_output_text
+        
+        
+        matches = [(m.start(), m.end()) for m in re.finditer(r'\S+', entry.model_output_text)]
+    
+        hard_predictions = []
+        soft_predictions = []
+        for start, end in matches:
+            soft_predictions.append({
+                "start": start,
+                "end": end,
+                "prob": 1.0,
+            })
+            hard_predictions.append([start, end])
+        
+        
+        entry.span_labeling_output.soft_predictions = soft_predictions
+        entry.span_labeling_output.hard_predictions = hard_predictions
+            
+        return entry
+    
 
     
 #%%
