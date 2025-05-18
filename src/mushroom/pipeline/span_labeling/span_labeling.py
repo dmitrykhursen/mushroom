@@ -84,14 +84,17 @@ class SpanLabeling:
                 temperature=self.config.span_labeling.temperature,
                 top_p=self.config.span_labeling.top_p,
                 response_format=pydantic_model,
+                seed=self.config.span_labeling.seed,
+                    
             )
         except Exception as e:
             print("Error in LLM call:", e)
-            return pydantic_model()
+            parsed_output = pydantic_model()
+            return parsed_output
         
         try:
             parsed_output = completion.choices[0].message.parsed
-            print("Parsed output:", parsed_output)
+            # print("Parsed output:", parsed_output)
         except Exception as e:
             print("Error parsing output:", e)
             print("Response text:", completion.choices[0].message.content)
@@ -111,20 +114,19 @@ class SpanLabeling:
             assert fact_i.fact == retrieval_i["fact"]
 
             start, end, fact = fact_i.start, fact_i.end, fact_i.fact
-            wiki_chunk = retrieval_i["chunks"][0]["chunk"] if retrieval_i["chunks"] else wiki_text
             
+            wiki_chunks = "\n".join([chunk["chunk"] for chunk in retrieval_i["chunks"]])
             _prompt = prompt_atomic.format(
                 question=entry.model_input,
                 fact=fact,
-                wiki=wiki_chunk,
+                wiki=wiki_chunks,
                 json_schema=HallucinationDetectionReturn.model_json_schema(),
             )
             
             
             messages = self.build_messages(_prompt)
             tasks.append(self.call_llm(messages, HallucinationDetectionReturn))
-            
-        responses = await asyncio.gather(*tasks)
+        responses = await tqdm_asyncio.gather(*tasks, desc="Span Labeling facts in one entry")
         
         for response in responses:
         # response = await self.call_llm(messages, HallucinationDetectionReturn)
@@ -143,7 +145,7 @@ class SpanLabeling:
                     {
                         "start": start,
                         "end": end,
-                        "prob": 0.5
+                        "prob": 1.0
                     }
                 )
             
@@ -164,7 +166,10 @@ class SpanLabelingSpans(SpanLabeling):
         facts = entry.fact_spans
         retrieval_outputs = entry.retrieval_output
         
+        
         wiki_text = retrieval_outputs.wiki_content
+        
+        
         model_output_text = entry.model_output_text
         modified_model_output_text = self.add_positions(model_output_text)
         
@@ -209,6 +214,7 @@ class SpanLabelingSpans(SpanLabeling):
 class SpanLabelingBaselineAll(SpanLabeling):
     async def process_entry(self, entry: Entry) -> Entry:
         facts = entry.fact_spans
+        
         retrieval_outputs = entry.retrieval_output
         
         wiki_text = retrieval_outputs.wiki_content
