@@ -15,14 +15,19 @@ class AtomicFact:
 
 @dataclass
 class RetrievalOutput:
-    retrieved: Optional[List[Dict]] = None
+    retrieved: Optional[List[Dict]] = dataclasses.field(default_factory=list)
     wiki_content: Optional[str] = None
+    wiki_page_title: Optional[str] = None
 
 
 @dataclass
 class SpanLabelingOutput:
-    soft_predictions: Optional[List[Dict[str, Any]]] = None
-    hard_predictions: Optional[List[List[int]]] = None
+    soft_predictions: Optional[List[Dict[str, Any]]] = dataclasses.field(
+        default_factory=list
+    )
+    hard_predictions: Optional[List[List[int]]] = dataclasses.field(
+        default_factory=list
+    )
 
 
 @dataclass
@@ -62,4 +67,10 @@ class Entry:
 
     @staticmethod
     def from_dict(data: Dict[str, Any]):
-        return dacite.from_dict(data_class=Entry, data=data)
+        return dacite.from_dict(data_class=Entry,
+                                data=data,
+                                config=dacite.Config(type_hooks={
+                                    Optional[List[Dict[str, Any]]]: lambda v: v if v is not None else [],
+                                    Optional[List[List[int]]]: lambda v: v if v is not None else [],
+                                    }), 
+                                )
