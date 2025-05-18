@@ -28,7 +28,7 @@ def read_dataset(file_path: str) -> List[Entry]:
     dataset = [Entry.from_dict(entry) for entry in data]
     return dataset
 
-def write_dataset(filepath: str, dataset: List[Entry], comment=None) -> str:
+def write_dataset(filepath: str, dataset: List[Entry], comment=None, mode="w") -> str:
     filepath = Path(filepath)
     if comment is not None:
         filepath_extension = Path(filepath).suffix
@@ -38,7 +38,7 @@ def write_dataset(filepath: str, dataset: List[Entry], comment=None) -> str:
         
         
     
-    with open(filepath, "w") as f:
+    with open(filepath, mode=mode) as f:
         for entry in dataset:
             f.write(json.dumps(dataclasses.asdict(entry)) + "\n")
             
