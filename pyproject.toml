@@ -1,19 +1,32 @@
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "mushroom"
-description = "mushroom challenge"
-version = "1.0"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = []
+requires-python = ">=3.11"
 dependencies = [
-    "pip-tools",
-    "ipykernel",
-    "python-dotenv",
-    "pydantic",
-    "langchain",
-    "openai",
+    "colorama>=0.4.6",
+    "dacite>=1.9.2",
+    "faiss-cpu>=1.11.0",
+    "langchain>=0.3.25",
+    "langchain-community>=0.3.24",
+    "openai>=1.77.0",
+    "pandas>=2.2.3",
+    "pydantic>=2.11.4",
+    "pydantic-settings>=2.9.1",
+    "scipy>=1.15.2",
+    "sentence-transformers>=4.1.0",
+    "setuptools>=80.7.1",
+    "vllm>=0.8.5.post1",
+    "wikipedia>=1.4.0",
 ]
 
-[tools.setuptools.packages.find]
-where = ["src"]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+]
