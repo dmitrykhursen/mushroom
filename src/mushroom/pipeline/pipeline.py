@@ -1,6 +1,5 @@
 #%%
 from typing import Any, List, Optional, Union
-import asyncio
 
 from mushroom.config import settings
 from mushroom.pipeline.data_connector import read_dataset, write_dataset
@@ -50,15 +49,6 @@ class Pipeline:
         else:
             dataset = deepcopy(dataset)
             
-        
-        # for entry in dataset:
-            
-        #     entry_list = [entry]
-        #     for step_name, step in self.steps:
-        #         entry_list = step(entry_list)
-        #         if output_path:
-        #             write_dataset(output_path, entry_list, comment=step_name, mode="a")
-        
         for step_name, step in self.steps:
             dataset = step(dataset)
             if output_path:
@@ -100,41 +90,36 @@ if __name__ == "__main__":
     
     # pipeline.evaluate(predictions)
     
-    #%%
-    print(f"* English validation set")
-    print(f"1. Nothing baseline")
-    file_path = project_root / "data/extra/splits/val/v2/mushroom.en-val.v2.extra.jsonl"
-    dataset = read_dataset(file_path)
-    Pipeline.evaluate(None, dataset);
+    # print(f"* English validation set")
+    # print(f"1. Nothing baseline")
+    # file_path = project_root / "data/extra/splits/val/v2/mushroom.en-val.v2.extra.jsonl"
+    # dataset = read_dataset(file_path)
+    # Pipeline.evaluate(None, dataset);
     
-    print(f"2. All facts baseline")
-    file_path = project_root / "outputs/mushroom.en-val.v2.extra_val_baseline/predictions_span_labeling_baseline.jsonl"
-    dataset = read_dataset(file_path)
-    Pipeline.evaluate(None, dataset);
+    # print(f"2. All facts baseline")
+    # file_path = project_root / "outputs/mushroom.en-val.v2.extra_val_baseline/predictions_span_labeling_baseline.jsonl"
+    # dataset = read_dataset(file_path)
+    # Pipeline.evaluate(None, dataset);
     
+    # print(f"3. LLM fact-checking baseline")
+    # file_path = project_root / "outputs/mushroom.en-val.v2.extra_val_main/predictions_span_labeling.jsonl"
+    # dataset = read_dataset(file_path)
+    # Pipeline.evaluate(None, dataset);
     
-    print(f"3. LLM fact-checking baseline")
+    # print(f"* English test set")
+    # print(f"1. Nothing baseline")
+    # file_path = project_root / "data/extra/splits/test_labeled/v1/mushroom.en-tst.v1.extra.jsonl"
+    # dataset = read_dataset(file_path)
+    # Pipeline.evaluate(None, dataset);
     
-    file_path = project_root / "outputs/mushroom.en-val.v2.extra_val_main/predictions_span_labeling.jsonl"
-    dataset = read_dataset(file_path)
-    Pipeline.evaluate(None, dataset);
-    #%%
-    
-    print(f"* English test set")
-    print(f"1. Nothing baseline")
-    file_path = project_root / "data/extra/splits/test_labeled/v1/mushroom.en-tst.v1.extra.jsonl"
-    dataset = read_dataset(file_path)
-    Pipeline.evaluate(None, dataset);
-    
-    print(f"2. All facts baseline")
-    file_path = project_root / "outputs/mushroom.en-tst.v1.extra_test_baseline/predictions_span_labeling_baseline.jsonl"
-    dataset = read_dataset(file_path)
-    Pipeline.evaluate(None, dataset)
+    # print(f"2. All facts baseline")
+    # file_path = project_root / "outputs/mushroom.en-tst.v1.extra_test_baseline/predictions_span_labeling_baseline.jsonl"
+    # dataset = read_dataset(file_path)
+    # Pipeline.evaluate(None, dataset)
     
     
-    print(f"3. LLM fact-checking baseline")
-    file_path = project_root / "outputs/mushroom.en-tst.v1.extra_test_main/predictions_span_labeling.jsonl"
-    dataset = read_dataset(file_path)
-    Pipeline.evaluate(None, dataset);
+    # print(f"3. LLM fact-checking baseline")
+    # file_path = project_root / "outputs/mushroom.en-tst.v1.extra_test_main/predictions_span_labeling.jsonl"
+    # dataset = read_dataset(file_path)
+    # Pipeline.evaluate(None, dataset);
 
-# %%
